@@ -202,11 +202,11 @@ async function prepareCore({ dest, arch }) {
   // Copy apps
   await cp(join(root, "apps"), join(dest, "apps"), { recursive: true });
 
-  // Copy packages except cli-host and run-spaceapp
+  // Copy packages except run-spaceapp (cli-host client runtime is required by apps/api)
   await mkdir(join(dest, "packages"), { recursive: true });
   const packageEntries = await readdir(join(root, "packages"), { withFileTypes: true });
   for (const entry of packageEntries) {
-    if (entry.isDirectory() && entry.name !== "cli-host" && entry.name !== "run-spaceapp") {
+    if (entry.isDirectory() && entry.name !== "run-spaceapp") {
       await cp(join(root, "packages", entry.name), join(dest, "packages", entry.name), { recursive: true });
     }
   }
@@ -225,7 +225,7 @@ async function prepareCore({ dest, arch }) {
     }
   }
 
-  // Copy node_modules, omitting node-pty, @space/cli-host, and unused multiplatform prebuilds
+  // Copy node_modules, omitting node-pty and unused multiplatform prebuilds
   if (existsSync(join(root, "node_modules"))) {
     await mkdir(join(dest, "node_modules"), { recursive: true });
     const nmEntries = await readdir(join(root, "node_modules"), { withFileTypes: true });
@@ -237,7 +237,6 @@ async function prepareCore({ dest, arch }) {
         const scopeEntries = await readdir(scopeSrc, { withFileTypes: true });
         for (const sub of scopeEntries) {
           const fullName = `${entry.name}/${sub.name}`;
-          if (fullName === "@space/cli-host") continue;
           if (isPlatformPackageUnused(fullName, arch)) continue;
 
           const subSrc = join(scopeSrc, sub.name);

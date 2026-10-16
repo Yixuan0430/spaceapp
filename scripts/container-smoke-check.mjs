@@ -1,10 +1,14 @@
-#!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile, chmod } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, rm, writeFile, chmod, readdir, readFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(__dirname, "..");
 
 function parseArgs(args = process.argv.slice(2)) {
   let target = null;
@@ -94,6 +98,9 @@ async function smokeCore(image) {
       "--name", coreName,
       "--network", network,
       "-p", "127.0.0.1::4911",
+      "-e", "SPACE_PUBLIC_DISTRIBUTION=true",
+      "-e", "SPACEAPP_WORKFLOWS_ENABLED=false",
+      "-e", "SPACE_RUNTIME_STORE=postgres",
       "-v", `${join(tempDir, "database-url")}:/run/secrets/database-url:ro`,
       "-v", `${join(tempDir, "session-secret")}:/run/secrets/session-secret:ro`,
       "-v", `${join(tempDir, "setup-token")}:/run/secrets/setup-token:ro`,
@@ -203,6 +210,21 @@ async function smokeBrowser(image) {
     }
     if (!pgReady) throw new Error("pgvector database failed to become ready within 30s");
 
+    process.stdout.write("[browser-smoke] Applying database migrations to pgvector...\n");
+    const migrationsDir = join(repoRoot, "packages", "db", "migrations");
+    if (existsSync(migrationsDir)) {
+      const sqlFiles = (await readdir(migrationsDir))
+        .filter((f) => f.endsWith(".sql"))
+        .sort();
+      for (const sqlFile of sqlFiles) {
+        const sqlContent = await readFile(join(migrationsDir, sqlFile));
+        execFileSync("docker", ["exec", "-i", pgName, "psql", "-U", "postgres", "-d", "spaceapp"], {
+          input: sqlContent,
+          stdio: ["pipe", "ignore", "ignore"]
+        });
+      }
+    }
+
     await writeFile(join(tempDir, "database-url"), "postgresql://postgres:postgres@pg:5432/spaceapp");
     await chmod(join(tempDir, "database-url"), 0o644);
 
@@ -211,6 +233,7 @@ async function smokeBrowser(image) {
       "run", "-d",
       "--name", browserName,
       "--network", network,
+      "-e", "SPACE_RUNTIME_STORE=postgres",
       "-v", `${join(tempDir, "database-url")}:/run/secrets/database-url:ro`,
       "-v", `${tempDir}:/run/spaceapp-browser`,
       image

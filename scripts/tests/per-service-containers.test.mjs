@@ -62,7 +62,8 @@ test("prepareContainerTarget prepares core target closure and excludes cli-host"
     assert.ok(existsSync(join(tempDir, "apps", "web")), "apps/web must exist in core");
     assert.ok(existsSync(join(tempDir, "packages", "db")), "packages/db must exist in core");
 
-    assert.ok(!existsSync(join(tempDir, "packages", "cli-host")), "packages/cli-host must NOT be present in core image");
+    assert.ok(!existsSync(join(tempDir, "node_modules", "node-pty")), "node-pty must NOT be present in core image");
+    assert.ok(existsSync(join(tempDir, "packages", "cli-host")), "packages/cli-host client runtime must exist in core for apps/api");
     assert.ok(!existsSync(join(tempDir, "packages", "run-spaceapp")), "packages/run-spaceapp must NOT be present in core image");
     assert.ok(existsSync(join(tempDir, "scripts", "rotate-owner-setup-token.mjs")), "rotate-owner-setup-token.mjs must exist in core");
   } finally {

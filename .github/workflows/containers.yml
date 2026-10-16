@@ -8,6 +8,7 @@ on:
       - "!packages/run-spaceapp/**"
       - "deploy/docker/**"
       - "starter-memory/**"
+      - "scripts/**"
       - "Dockerfile"
       - "package-lock.json"
   push:
@@ -19,6 +20,7 @@ on:
       - "!packages/run-spaceapp/**"
       - "deploy/docker/**"
       - "starter-memory/**"
+      - "scripts/**"
       - "Dockerfile"
       - "package-lock.json"
   workflow_dispatch:
