@@ -783,9 +783,13 @@ export async function collectPodmanFacts(execute) {
     try {
       rawJson = JSON.parse(infoOut);
       rootless = rawJson.host?.security?.rootless ?? true;
-      cgroupVersion = rawJson.host?.cgroupVersion ?? "v2";
       const controllers = rawJson.host?.cgroupControllers ?? [];
-      limitsDelegated = !rootless || (cgroupVersion === "v2" && (controllers.includes("cpu") || controllers.length === 0));
+      const requiredControllers = ["cpu", "memory", "pids"];
+      limitsDelegated = !rootless || (
+        cgroupVersion === "v2" &&
+        Array.isArray(controllers) &&
+        requiredControllers.every((c) => controllers.includes(c))
+      );
     } catch {}
   }
 

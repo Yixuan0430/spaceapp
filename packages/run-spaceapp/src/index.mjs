@@ -623,6 +623,10 @@ export function renderWorkspaceCompose(config) {
     ...(isPodman ? [
       '    userns_mode: "keep-id:uid=10001,gid=10001"'
     ] : []),
+    ...(isPodman ? [
+      "  spaceapp-browser:",
+      '    userns_mode: "keep-id:uid=10001,gid=10001"'
+    ] : []),
     ""
   ].join("\n");
 }
@@ -848,7 +852,7 @@ export async function prepareInstallation(root, {
     config = { ...config, companionsEnabled };
   }
   if (engine !== undefined) {
-    const resolvedEngine = resolveInstallEngine(engine, config.engine);
+    const resolvedEngine = resolveInstallEngine(engine, configEngine(config));
     if (resolvedEngine === "podman" || config.engine !== undefined) {
       config = { ...config, engine: resolvedEngine };
     }

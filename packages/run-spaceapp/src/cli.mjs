@@ -698,7 +698,7 @@ async function installCommand(args, {
   const existingConfig = await loadExistingInstallation(root);
   const engine = resolveInstallEngine(
     parsed.requestedEngine ?? requestedEngine,
-    existingConfig?.engine
+    existingConfig ? configEngine(existingConfig) : undefined
   );
   const accessMode = resolveInstallAccessMode(
     requestedAccessMode,
@@ -1154,8 +1154,8 @@ async function planInteractiveSetup({
     let engineChoice = parsed.requestedEngine;
     if (!engineChoice) {
       const [dockerAvail, podmanAvail] = await Promise.all([
-        dockerCliAndComposeAreAvailable({ execute }).catch(() => false),
-        podmanCliAndComposeAreAvailable({ execute }).catch(() => false)
+        dockerCliAndComposeAreAvailable(execute).catch(() => false),
+        podmanCliAndComposeAreAvailable(execute).catch(() => false)
       ]);
       if (dockerAvail && podmanAvail) {
         engineChoice = await promptChoice(stdin, stdout, "Which container engine?", [
@@ -2155,7 +2155,11 @@ async function factoryResetCommand({
   try {
     stdout.write("Creating safety backup before factory reset...\n");
     await execute(
-      composeCommand("backup", root, { profile: config.profile, companionsEnabled: config.companionsEnabled }),
+      composeCommand("backup", root, {
+        profile: config.profile,
+        companionsEnabled: config.companionsEnabled,
+        engine: configEngine(config)
+      }),
       { stdin, stdout, stderr }
     );
   } catch (err) {
@@ -2174,7 +2178,11 @@ async function factoryResetCommand({
   }
 
   await execute(
-    composeCommand("purge", root, { profile: config.profile, companionsEnabled: config.companionsEnabled }),
+    composeCommand("purge", root, {
+      profile: config.profile,
+      companionsEnabled: config.companionsEnabled,
+      engine: configEngine(config)
+    }),
     { stdin, stdout, stderr }
   );
 
@@ -2184,7 +2192,10 @@ async function factoryResetCommand({
     await rm(join(root, "compose.yml"), { force: true });
   } catch {}
 
-  const result = await initializeInstallation(root, { version: runtimeVersion });
+  const result = await initializeInstallation(root, {
+    version: runtimeVersion,
+    engine: configEngine(config)
+  });
   stdout.write(`SpaceApp factory reset complete. Clean installation initialized at ${root}\n`);
   if (result.setupToken) {
     stdout.write(`One-time setup token: ${result.setupToken}\n`);

@@ -314,7 +314,7 @@ test("run install with --engine podman configures podman and succeeds", async ()
       if (spec.command === "podman" && spec.args?.includes("info")) {
         io.stdout?.write(JSON.stringify({
           version: { Version: "5.2.0" },
-          host: { security: { rootless: true }, cgroupVersion: "v2", cgroupControllers: ["cpu", "memory"] }
+          host: { security: { rootless: true }, cgroupVersion: "v2", cgroupControllers: ["cpu", "memory", "pids"] }
         }));
         return 0;
       }
@@ -390,7 +390,7 @@ test("run doctor on podman installation verifies podman probes", async () => {
       if (spec.command === "podman" && spec.args?.includes("info")) {
         io.stdout?.write(JSON.stringify({
           version: { Version: "5.2.0" },
-          host: { security: { rootless: true }, cgroupVersion: "v2", cgroupControllers: ["cpu", "memory"] }
+          host: { security: { rootless: true }, cgroupVersion: "v2", cgroupControllers: ["cpu", "memory", "pids"] }
         }));
         return 0;
       }
@@ -404,4 +404,37 @@ test("run doctor on podman installation verifies podman probes", async () => {
   assert.match(stdout.value(), /PASS Podman Engine: available/);
 
   await rm(root, { recursive: true, force: true });
+});
+
+test("resolveInstallEngine rejects switching engine when existing config omits engine field", () => {
+  const legacyDockerConfig = createDefaultConfig({ version: "1.1.5", profile: "small", accessMode: "isolated" });
+  assert.equal(legacyDockerConfig.engine, undefined);
+  assert.equal(configEngine(legacyDockerConfig), "docker");
+  assert.throws(
+    () => resolveInstallEngine("podman", configEngine(legacyDockerConfig)),
+    /Switching container engines on an existing installation is not supported/
+  );
+});
+
+test("renderWorkspaceCompose maps browser service userns_mode under podman", () => {
+  const podmanConfig = {
+    ...createDefaultConfig({ version: "1.1.5", profile: "standard", accessMode: "isolated", engine: "podman" }),
+    workspaces: [{ id: "ws-12345678", name: "ws1", hostPath: "/tmp/ws1", containerPath: "/workspaces/ws1", readOnly: false }]
+  };
+  const yaml = renderWorkspaceCompose(podmanConfig);
+  assert.match(yaml, /spaceapp-browser:\n\s*userns_mode:\s*"keep-id:uid=10001,gid=10001"/);
+});
+
+test("collectPodmanFacts rejects limits delegation when pids controller is absent", async () => {
+  const facts = await collectPodmanFacts(async (spec, io) => {
+    if (spec.args?.includes("info")) {
+      io.stdout?.write(JSON.stringify({
+        version: { Version: "5.2.0" },
+        host: { security: { rootless: true }, cgroupVersion: "v2", cgroupControllers: ["cpu", "memory"] }
+      }));
+      return 0;
+    }
+    return 0;
+  });
+  assert.equal(facts.limitsDelegated, false);
 });
